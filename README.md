@@ -65,28 +65,55 @@ docker run -p 8000:8000 --env-file .env replicate-openai
 
 ## Available models
 
-| Model name (use as `model=`) | Replicate model | Format |
-|------------------------------|-----------------|--------|
-| `llama-3-8b-instruct` | meta/meta-llama-3-8b-instruct | Llama 3 |
-| `llama-3-70b-instruct` | meta/meta-llama-3-70b-instruct | Llama 3 |
-| `llama-3.1-8b-instruct` | meta/meta-llama-3.1-8b-instruct | Llama 3 |
-| `llama-3.1-70b-instruct` | meta/meta-llama-3.1-70b-instruct | Llama 3 |
-| `llama-3.1-405b-instruct` | meta/meta-llama-3.1-405b-instruct | Llama 3 |
-| `mistral-7b-instruct` | mistralai/mistral-7b-instruct-v0.2 | Mistral |
-| `mixtral-8x7b-instruct` | mistralai/mixtral-8x7b-instruct-v0.1 | Mistral |
-| `deepseek-r1` | deepseek-ai/deepseek-r1 | Llama 3 |
-| `qwen2.5-72b-instruct` | qwen/qwen2.5-72b-instruct | Llama 3 |
+`GET /v1/models` returns the full live list fetched from Replicate's model collections, refreshed every 5 minutes. You can use any model from that list, or pass an `owner/name` Replicate model ID directly — no configuration needed.
 
-## Adding new models
+### Shorthand aliases
 
-Edit `app/config.py` and add an entry to `MODEL_MAP`:
+A set of commonly used models are pre-configured with short names:
+
+**Chat:**
+
+| Alias | Replicate model |
+|-------|----------------|
+| `llama-3-8b-instruct` | meta/meta-llama-3-8b-instruct |
+| `llama-3-70b-instruct` | meta/meta-llama-3-70b-instruct |
+| `llama-3.1-8b-instruct` | meta/meta-llama-3.1-8b-instruct |
+| `llama-3.1-70b-instruct` | meta/meta-llama-3.1-70b-instruct |
+| `llama-3.1-405b-instruct` | meta/meta-llama-3.1-405b-instruct |
+| `mistral-7b-instruct` | mistralai/mistral-7b-instruct-v0.2 |
+| `mixtral-8x7b-instruct` | mistralai/mixtral-8x7b-instruct-v0.1 |
+| `deepseek-r1` | deepseek-ai/deepseek-r1 |
+| `qwen2.5-72b-instruct` | qwen/qwen2.5-72b-instruct |
+
+**Image:**
+
+| Alias | Replicate model |
+|-------|----------------|
+| `flux-schnell` | black-forest-labs/flux-schnell |
+| `flux-dev` | black-forest-labs/flux-dev |
+| `flux-pro` | black-forest-labs/flux-1.1-pro |
+| `flux-2-pro` | black-forest-labs/flux-2-pro |
+| `imagen-3` | google/imagen-3 |
+| `imagen-4` | google/imagen-4 |
+| `ideogram-v3` | ideogram-ai/ideogram-v3-balanced |
+| `stable-diffusion-3` | stability-ai/stable-diffusion-3 |
+| `sdxl` | stability-ai/sdxl |
+
+### Using any Replicate model
+
+Pass the `owner/name` (or `owner/name:version`) directly as the `model` parameter:
 
 ```python
-"my-model-alias": ("owner/model-name-on-replicate", "llama3"),
-# or use "mistral" as the second element for Mistral-style prompting
+# Any language model on Replicate
+client.chat.completions.create(model="mistralai/mistral-7b-instruct-v0.2", ...)
+
+# Any image model on Replicate
+client.images.generate(model="black-forest-labs/flux-dev", ...)
 ```
 
-No other changes are needed — the new model will appear in `GET /v1/models` automatically.
+### Adding a permanent alias
+
+To give a model a short name, add it to `MODEL_MAP` in `app/config.py` (chat) or `IMAGE_MODEL_MAP` in `app/image_models.py` (images). It will appear in `GET /v1/models` automatically.
 
 ## Environment variables
 
