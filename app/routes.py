@@ -6,14 +6,14 @@ import time
 import uuid
 from typing import AsyncIterator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 import base64
 
 import httpx
 
-from app.config import DEFAULT_MODEL, MODEL_MAP
+from app.config import AUTH_MODE, DEFAULT_MODEL, MODEL_MAP
 from app.image_models import IMAGE_MODEL_MAP, DEFAULT_IMAGE_MODEL, build_image_input
 from app.models import (
     ChatCompletionRequest,
@@ -106,9 +106,36 @@ def _build_replicate_input(
     return inp
 
 
-def _openai_error(message: str, error_type: str, code: str, status_code: int) -> JSONResponse:
+def _openai_error(message: str, error_type: str, code: str | None, status_code: int) -> JSONResponse:
     body = ErrorResponse(error=ErrorDetail(message=message, type=error_type, code=code))
     return JSONResponse(status_code=status_code, content=body.model_dump())
+
+
+def _extract_bearer_token(request: Request) -> str | None:
+    header = request.headers.get("Authorization", "")
+    if header.startswith("Bearer "):
+        return header[7:].strip() or None
+    return None
+
+
+def _require_token(request: Request) -> tuple[str | None, JSONResponse | None]:
+    """When AUTH_MODE is on, extract and validate the Bearer token.
+    Returns (token, None) on success or (None, error_response) on failure."""
+    if not AUTH_MODE:
+        return None, None
+    token = _extract_bearer_token(request)
+    if not token:
+        return None, _openai_error("No API key provided.", "authentication_error", None, 401)
+    return token, None
+
+
+# ---------------------------------------------------------------------------
+# Auth mode status (public — no auth required)
+# ---------------------------------------------------------------------------
+
+@router.get("/auth-mode")
+async def auth_mode_status() -> JSONResponse:
+    return JSONResponse({"auth_mode": AUTH_MODE})
 
 
 # ---------------------------------------------------------------------------
@@ -168,12 +195,16 @@ async def get_model(model_id: str) -> Model:
 # ---------------------------------------------------------------------------
 
 @router.post("/chat/completions", response_model=None)
-async def chat_completions(request: ChatCompletionRequest) -> JSONResponse | StreamingResponse:
+async def chat_completions(request: ChatCompletionRequest, raw_request: Request) -> JSONResponse | StreamingResponse:
     """
     OpenAI-compatible chat completions endpoint.
 
     Supports both streaming (stream=true) and non-streaming responses.
     """
+    api_token, err = _require_token(raw_request)
+    if err:
+        return err
+
     canonical_name, replicate_id, prompt_format = _resolve_model(request.model)
 
     try:
@@ -191,7 +222,7 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse | Str
 
     if request.stream:
         return StreamingResponse(
-            _stream_chat_response(replicate_id, replicate_input, canonical_name, prompt_tokens),
+            _stream_chat_response(replicate_id, replicate_input, canonical_name, prompt_tokens, api_token),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -201,7 +232,7 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse | Str
 
     # Non-streaming
     try:
-        output = await run_prediction(replicate_id, replicate_input, stream=False)
+        output = await run_prediction(replicate_id, replicate_input, stream=False, api_token=api_token)
     except PermissionError as exc:
         return _openai_error(str(exc), "authentication_error", "invalid_api_key", 401)
     except TimeoutError as exc:
@@ -219,6 +250,7 @@ async def _stream_chat_response(
     replicate_input: dict,
     model_name: str,
     prompt_tokens: int,
+    api_token: str | None = None,
 ) -> AsyncIterator[str]:
     """Generator that yields SSE-formatted chat completion chunks."""
     chunk_id = f"chatcmpl-{uuid.uuid4().hex}"
@@ -228,7 +260,7 @@ async def _stream_chat_response(
     yield f"data: {first.model_dump_json()}\n\n"
 
     try:
-        async for token in stream_prediction(replicate_id, replicate_input):
+        async for token in stream_prediction(replicate_id, replicate_input, api_token=api_token):
             chunk = stream_chunk(token, model_name, chunk_id)
             yield f"data: {chunk.model_dump_json()}\n\n"
     except PermissionError as exc:
@@ -250,13 +282,14 @@ async def _stream_completion_response(
     replicate_id: str,
     replicate_input: dict,
     model_name: str,
+    api_token: str | None = None,
 ) -> AsyncIterator[str]:
     """Generator that yields SSE-formatted legacy completion chunks."""
     chunk_id = f"cmpl-{uuid.uuid4().hex}"
     created = int(time.time())
 
     try:
-        async for token in stream_prediction(replicate_id, replicate_input):
+        async for token in stream_prediction(replicate_id, replicate_input, api_token=api_token):
             chunk = {
                 "id": chunk_id,
                 "object": "text_completion",
@@ -311,12 +344,16 @@ def _sse_error(message: str, error_type: str, code: str) -> str:
 # ---------------------------------------------------------------------------
 
 @router.post("/completions", response_model=None)
-async def text_completions(request: CompletionRequest) -> JSONResponse | StreamingResponse:
+async def text_completions(request: CompletionRequest, raw_request: Request) -> JSONResponse | StreamingResponse:
     """
     Legacy /v1/completions endpoint.
 
     Maps the plain prompt to a single-turn chat completion internally.
     """
+    api_token, err = _require_token(raw_request)
+    if err:
+        return err
+
     canonical_name, replicate_id, prompt_format = _resolve_model(request.model)
 
     # Normalise prompt to a string
@@ -342,7 +379,7 @@ async def text_completions(request: CompletionRequest) -> JSONResponse | Streami
 
     if request.stream:
         return StreamingResponse(
-            _stream_completion_response(replicate_id, replicate_input, canonical_name),
+            _stream_completion_response(replicate_id, replicate_input, canonical_name, api_token),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -351,7 +388,7 @@ async def text_completions(request: CompletionRequest) -> JSONResponse | Streami
         )
 
     try:
-        output = await run_prediction(replicate_id, replicate_input, stream=False)
+        output = await run_prediction(replicate_id, replicate_input, stream=False, api_token=api_token)
     except PermissionError as exc:
         return _openai_error(str(exc), "authentication_error", "invalid_api_key", 401)
     except TimeoutError as exc:
@@ -379,13 +416,17 @@ async def text_completions(request: CompletionRequest) -> JSONResponse | Streami
 # ---------------------------------------------------------------------------
 
 @router.post("/images/generations", response_model=None)
-async def image_generations(request: ImageGenerationRequest) -> JSONResponse:
+async def image_generations(request: ImageGenerationRequest, raw_request: Request) -> JSONResponse:
     """
     OpenAI-compatible image generation endpoint.
 
     Maps to Replicate image models. Supports response_format=url (default)
     and response_format=b64_json.
     """
+    api_token, err = _require_token(raw_request)
+    if err:
+        return err
+
     model_name = request.model or DEFAULT_IMAGE_MODEL
 
     # Resolve model: check alias map first, then treat as raw owner/name
@@ -414,7 +455,7 @@ async def image_generations(request: ImageGenerationRequest) -> JSONResponse:
     )
 
     try:
-        urls = await run_image_prediction(replicate_id, replicate_input)
+        urls = await run_image_prediction(replicate_id, replicate_input, api_token=api_token)
     except PermissionError as exc:
         return _openai_error(str(exc), "authentication_error", "invalid_api_key", 401)
     except TimeoutError as exc:

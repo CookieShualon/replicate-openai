@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN", "")
+AUTH_MODE: bool = os.getenv("AUTH_MODE", "false").lower() == "true"
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 

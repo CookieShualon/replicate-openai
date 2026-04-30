@@ -94,11 +94,12 @@ POLL_INTERVAL = 0.75  # seconds between status polls
 STREAM_URL_TIMEOUT = 60
 
 
-def _auth_headers() -> dict[str, str]:
-    if not REPLICATE_API_TOKEN:
+def _auth_headers(api_token: str | None = None) -> dict[str, str]:
+    token = api_token or REPLICATE_API_TOKEN
+    if not token:
         raise ValueError("REPLICATE_API_TOKEN is not set")
     return {
-        "Authorization": f"Token {REPLICATE_API_TOKEN}",
+        "Authorization": f"Token {token}",
         "Content-Type": "application/json",
     }
 
@@ -108,6 +109,7 @@ async def _create_prediction(
     model_version: str,
     input_dict: dict[str, Any],
     stream: bool = False,
+    api_token: str | None = None,
 ) -> dict[str, Any]:
     """
     POST to Replicate's predictions endpoint.
@@ -131,7 +133,7 @@ async def _create_prediction(
         # Model-level deployment (uses the model's default version)
         url = f"{REPLICATE_API_BASE}/models/{model_version}/predictions"
 
-    response = await client.post(url, json=payload, headers=_auth_headers())
+    response = await client.post(url, json=payload, headers=_auth_headers(api_token))
 
     if response.status_code == 401:
         raise PermissionError("Invalid or missing REPLICATE_API_TOKEN")
@@ -148,6 +150,7 @@ async def _create_prediction(
 async def _poll_prediction(
     client: httpx.AsyncClient,
     prediction_id: str,
+    api_token: str | None = None,
 ) -> dict[str, Any]:
     """Poll a prediction until it reaches a terminal state."""
     url = f"{REPLICATE_API_BASE}/predictions/{prediction_id}"
@@ -157,7 +160,7 @@ async def _poll_prediction(
         await asyncio.sleep(POLL_INTERVAL)
         elapsed += POLL_INTERVAL
 
-        resp = await client.get(url, headers=_auth_headers())
+        resp = await client.get(url, headers=_auth_headers(api_token))
         if resp.status_code != 200:
             raise RuntimeError(
                 f"Replicate poll failed [{resp.status_code}]: {resp.text}"
@@ -182,6 +185,7 @@ async def run_prediction(
     model_version: str,
     input_dict: dict[str, Any],
     stream: bool = False,
+    api_token: str | None = None,
 ) -> str:
     """
     Run a Replicate prediction and return the full text output.
@@ -190,11 +194,11 @@ async def run_prediction(
     single string; we always join and return a plain str.
     """
     async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, read=300.0)) as client:
-        prediction = await _create_prediction(client, model_version, input_dict, stream=False)
+        prediction = await _create_prediction(client, model_version, input_dict, stream=False, api_token=api_token)
         prediction_id = prediction["id"]
         logger.info("Created prediction %s for model %s", prediction_id, model_version)
 
-        result = await _poll_prediction(client, prediction_id)
+        result = await _poll_prediction(client, prediction_id, api_token=api_token)
         output = result.get("output")
 
         if output is None:
@@ -207,6 +211,7 @@ async def run_prediction(
 async def stream_prediction(
     model_version: str,
     input_dict: dict[str, Any],
+    api_token: str | None = None,
 ) -> AsyncIterator[str]:
     """
     Run a Replicate prediction in streaming mode.
@@ -215,23 +220,24 @@ async def stream_prediction(
     The caller is responsible for wrapping each token in the OpenAI chunk format.
     """
     async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, read=300.0)) as client:
-        prediction = await _create_prediction(client, model_version, input_dict, stream=True)
+        prediction = await _create_prediction(client, model_version, input_dict, stream=True, api_token=api_token)
         prediction_id = prediction["id"]
         logger.info("Created streaming prediction %s for model %s", prediction_id, model_version)
 
         # Wait for Replicate to provide the stream URL
         stream_url = prediction.get("urls", {}).get("stream")
         if not stream_url:
-            stream_url = await _wait_for_stream_url(client, prediction_id)
+            stream_url = await _wait_for_stream_url(client, prediction_id, api_token=api_token)
 
         # Stream SSE tokens
-        async for token in _read_sse_stream(client, stream_url):
+        async for token in _read_sse_stream(client, stream_url, api_token=api_token):
             yield token
 
 
 async def _wait_for_stream_url(
     client: httpx.AsyncClient,
     prediction_id: str,
+    api_token: str | None = None,
 ) -> str:
     """Poll the prediction until the stream URL is available."""
     url = f"{REPLICATE_API_BASE}/predictions/{prediction_id}"
@@ -241,7 +247,7 @@ async def _wait_for_stream_url(
         await asyncio.sleep(POLL_INTERVAL)
         elapsed += POLL_INTERVAL
 
-        resp = await client.get(url, headers=_auth_headers())
+        resp = await client.get(url, headers=_auth_headers(api_token))
         if resp.status_code != 200:
             raise RuntimeError(f"Replicate poll failed [{resp.status_code}]: {resp.text}")
 
@@ -262,6 +268,7 @@ async def _wait_for_stream_url(
 async def _read_sse_stream(
     client: httpx.AsyncClient,
     stream_url: str,
+    api_token: str | None = None,
 ) -> AsyncIterator[str]:
     """
     Read a Replicate SSE stream and yield token strings.
@@ -273,7 +280,7 @@ async def _read_sse_stream(
         event: done
         data: {}
     """
-    headers = {**_auth_headers(), "Accept": "text/event-stream"}
+    headers = {**_auth_headers(api_token), "Accept": "text/event-stream"}
 
     async with client.stream("GET", stream_url, headers=headers, timeout=None) as response:
         if response.status_code != 200:
@@ -311,6 +318,7 @@ async def _read_sse_stream(
 async def run_image_prediction(
     model_version: str,
     input_dict: dict[str, Any],
+    api_token: str | None = None,
 ) -> list[str]:
     """
     Run a Replicate image generation prediction and return a list of output URLs.
@@ -318,11 +326,11 @@ async def run_image_prediction(
     Image models return either a single URL string or a list of URL strings.
     """
     async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, read=300.0)) as client:
-        prediction = await _create_prediction(client, model_version, input_dict, stream=False)
+        prediction = await _create_prediction(client, model_version, input_dict, stream=False, api_token=api_token)
         prediction_id = prediction["id"]
         logger.info("Created image prediction %s for model %s", prediction_id, model_version)
 
-        result = await _poll_prediction(client, prediction_id)
+        result = await _poll_prediction(client, prediction_id, api_token=api_token)
         output = result.get("output")
 
         if output is None:

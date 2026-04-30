@@ -119,6 +119,7 @@ To give a model a short name, add it to `MODEL_MAP` in `app/config.py` (chat) or
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `REPLICATE_API_TOKEN` | *(required)* | Your Replicate API token |
+| `REPLICATE_API_TOKEN` | *(required in default mode)* | Your Replicate API token |
+| `AUTH_MODE` | `false` | Set to `true` for BYOK mode — clients must pass their own Replicate token as `Authorization: Bearer <token>`. The server's `REPLICATE_API_TOKEN` is not used for requests. |
 | `HOST` | `0.0.0.0` | Bind address |
 | `PORT` | `8000` | Listen port |

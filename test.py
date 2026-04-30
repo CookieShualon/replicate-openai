@@ -7,6 +7,7 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 import httpx
 from openai import OpenAI
@@ -31,7 +32,23 @@ def check(name: str, fn):
 
 
 def run_tests(base_url: str) -> int:
-    client = OpenAI(base_url=f"{base_url}/v1", api_key="test")
+    # Detect auth mode and pick the right api_key for the OpenAI client
+    try:
+        r = httpx.get(f"{base_url}/auth-mode", timeout=5)
+        auth_mode: bool = r.json().get("auth_mode", False)
+    except Exception:
+        auth_mode = False
+
+    if auth_mode:
+        token = os.environ.get("REPLICATE_API_TOKEN")
+        if not token:
+            print("AUTH_MODE is on but REPLICATE_API_TOKEN is not set in env — cannot run tests.")
+            return 1
+        api_key = token
+    else:
+        api_key = "test"
+
+    client = OpenAI(base_url=f"{base_url}/v1", api_key=api_key)
     failures = 0
 
     # -------------------------------------------------------------------------
@@ -42,6 +59,16 @@ def run_tests(base_url: str) -> int:
         assert r.status_code == 200
 
     if not check("GET / returns 200", test_health):
+        failures += 1
+
+    def test_auth_mode_endpoint():
+        r = httpx.get(f"{base_url}/auth-mode", timeout=5)
+        assert r.status_code == 200
+        data = r.json()
+        assert "auth_mode" in data
+        assert isinstance(data["auth_mode"], bool)
+
+    if not check("GET /auth-mode returns auth_mode bool", test_auth_mode_endpoint):
         failures += 1
 
     # -------------------------------------------------------------------------
@@ -178,7 +205,7 @@ def run_tests(base_url: str) -> int:
 
     # -------------------------------------------------------------------------
     print()
-    total = 11
+    total = 12
     passed = total - failures
     status = PASS if failures == 0 else FAIL
     print(f"Results: {status}  {passed}/{total} passed\n")
