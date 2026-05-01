@@ -179,7 +179,9 @@ To give a model a short name, add it to `MODEL_MAP` in `app/config.py` (chat) or
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide — local setup, code style, how to add a model alias, and how to submit a PR.
+
+Quick start:
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
