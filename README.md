@@ -4,7 +4,7 @@ An OpenAI-compatible API gateway that routes requests to [Replicate](https://rep
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-![GitHub Stars](https://img.shields.io/github/stars/cookieshualon/replicate-openai?style=flat&color=yellow)
+![GitHub Stars](https://img.shields.io/github/stars/cookieshualon/replicate-openai?style=flat&label=⭐%20stars&color=grey)
 [<img src="https://railway.com/button.svg" height="20">](https://railway.com/deploy/replicate-openai?referralCode=UJ-ev5&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 ## Table of Contents
