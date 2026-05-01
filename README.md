@@ -99,6 +99,15 @@ print(image_url)
 
 ### 4. Run with Docker
 
+Pull the pre-built image:
+
+```bash
+docker pull cookieshualon/replicate-openai
+docker run -p 8000:8000 --env-file .env cookieshualon/replicate-openai
+```
+
+Or build it yourself:
+
 ```bash
 docker build -t replicate-openai .
 docker run -p 8000:8000 --env-file .env replicate-openai
