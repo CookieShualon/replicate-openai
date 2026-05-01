@@ -2,6 +2,8 @@
 
 An OpenAI-compatible API gateway that routes requests to [Replicate](https://replicate.com)-hosted models. Drop it in front of any OpenAI SDK client by changing one line of code.
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/replicate-openai?referralCode=UJ-ev5&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
 ## What it does
 
 - Exposes the OpenAI REST API surface (`/v1/chat/completions`, `/v1/completions`, `/v1/models`)
