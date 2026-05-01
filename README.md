@@ -49,6 +49,9 @@ Any app using `client.images.generate(...)` can use FLUX, Stable Diffusion, Imag
 **Self-host for privacy or compliance**
 Run the gateway on your own infrastructure. Requests go from your server to Replicate's API — no data passes through OpenAI.
 
+**Use Replicate models inside AI coding tools**
+Cursor, Kilo Code, Continue, and similar tools let you configure a custom OpenAI base URL. Point them at this gateway and use any Replicate model — Llama 3, DeepSeek R1, Qwen, or any other — directly inside your editor, with no OpenAI account required.
+
 **Prototype with different models fast**
 Swap `model="llama-3-70b-instruct"` for `model="deepseek-r1"` or any Replicate model ID. No config changes, no redeployment — just change the model name in your request.
 
