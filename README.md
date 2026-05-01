@@ -9,6 +9,7 @@ An OpenAI-compatible API gateway that routes requests to [Replicate](https://rep
 ## Table of Contents
 
 - [Features](#features)
+- [Use cases](#use-cases)
 - [What it does](#what-it-does)
 - [Quickstart](#quickstart)
 - [Available models](#available-models)
@@ -27,6 +28,29 @@ An OpenAI-compatible API gateway that routes requests to [Replicate](https://rep
 - Live model list fetched from Replicate's collections
 - BYOK (Bring Your Own Key) authentication mode
 - Docker support
+
+## Use cases
+
+**Switch from OpenAI to open-source models without touching your code**
+Your app already uses the OpenAI SDK. Change `base_url` to point here, pick a model like `llama-3-70b-instruct`, and everything — streaming, tool calls, message history — works as before. No SDK swap, no refactor.
+
+**Cut costs on LLM-heavy workloads**
+Replicate's per-second billing and open-weight models are often significantly cheaper than OpenAI for high-volume inference. Drop this gateway in and benchmark models side by side without rewriting any client code.
+
+**Access 1000+ models through one API**
+Replicate hosts thousands of community and official models across text, image, audio, and video. This gateway exposes all of them through the OpenAI interface — pass any `owner/model` ID as the `model` parameter and it just works.
+
+**Build a multi-user AI service with BYOK**
+Enable `AUTH_MODE=true` and each user can supply their own Replicate API token as a Bearer header. You don't hold anyone's credentials, and billing goes directly to each user's Replicate account.
+
+**Add image generation to an OpenAI-based app**
+Any app using `client.images.generate(...)` can use FLUX, Stable Diffusion, Imagen 4, or Ideogram via this gateway — no new SDK or client needed.
+
+**Self-host for privacy or compliance**
+Run the gateway on your own infrastructure. Requests go from your server to Replicate's API — no data passes through OpenAI.
+
+**Prototype with different models fast**
+Swap `model="llama-3-70b-instruct"` for `model="deepseek-r1"` or any Replicate model ID. No config changes, no redeployment — just change the model name in your request.
 
 ## What it does
 
