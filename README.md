@@ -2,14 +2,38 @@
 
 An OpenAI-compatible API gateway that routes requests to [Replicate](https://replicate.com)-hosted models. Drop it in front of any OpenAI SDK client by changing one line of code.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/replicate-openai?referralCode=UJ-ev5&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
+## Table of Contents
+
+- [Features](#features)
+- [What it does](#what-it-does)
+- [Quickstart](#quickstart)
+- [Available models](#available-models)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Features
+
+- OpenAI-compatible API surface (`/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/images/generate`)
+- Automatic prompt formatting for Llama-3 and Mistral models
+- Streaming and non-streaming response support
+- Chat and image model support
+- Pre-configured model aliases for popular models
+- Live model list fetched from Replicate's collections
+- BYOK (Bring Your Own Key) authentication mode
+- Docker support
 
 ## What it does
 
-- Exposes the OpenAI REST API surface (`/v1/chat/completions`, `/v1/completions`, `/v1/models`)
-- Translates each request into a Replicate prediction, streams or collects the output, then returns an OpenAI-shaped response
-- Handles Llama-3 and Mistral prompt formatting automatically
-- Supports both streaming (`stream: true`) and non-streaming responses
+- Exposes the OpenAI REST API surface
+- Translates each request into a Replicate prediction
+- Streams or collects the output, then returns an OpenAI-shaped response
+- Handles prompt formatting automatically for supported model families
 
 ## Quickstart
 
@@ -32,6 +56,8 @@ The server starts on `http://localhost:8000`. Interactive API docs are at `http:
 
 ### 3. Point your OpenAI client at it
 
+**Chat completions (non-streaming):**
+
 ```python
 from openai import OpenAI
 
@@ -47,7 +73,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-Streaming works identically:
+**Chat completions (streaming):**
 
 ```python
 with client.chat.completions.stream(
@@ -56,6 +82,19 @@ with client.chat.completions.stream(
 ) as stream:
     for text in stream.text_stream:
         print(text, end="", flush=True)
+```
+
+**Image generation:**
+
+```python
+response = client.images.generate(
+    model="flux-schnell",
+    prompt="A beautiful sunset over mountains",
+    size="1024x1024",
+    n=1,
+)
+image_url = response.data[0].url
+print(image_url)
 ```
 
 ### 4. Run with Docker
@@ -117,11 +156,37 @@ client.images.generate(model="black-forest-labs/flux-dev", ...)
 
 To give a model a short name, add it to `MODEL_MAP` in `app/config.py` (chat) or `IMAGE_MODEL_MAP` in `app/image_models.py` (images). It will appear in `GET /v1/models` automatically.
 
-## Environment variables
+## Configuration
+
+### Environment variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `REPLICATE_API_TOKEN` | *(required in default mode)* | Your Replicate API token |
-| `AUTH_MODE` | `false` | Set to `true` for BYOK mode — clients must pass their own Replicate token as `Authorization: Bearer <token>`. The server's `REPLICATE_API_TOKEN` is not used for requests. |
+| `REPLICATE_API_TOKEN` | *(required in server mode)* | Your Replicate API token. Required when `AUTH_MODE=false`. |
+| `AUTH_MODE` | `false` | Authentication mode: `false`=server uses `REPLICATE_API_TOKEN` for all requests; `true`=clients must provide their own token via `Authorization: Bearer <token>` (BYOK - Bring Your Own Key). |
 | `HOST` | `0.0.0.0` | Bind address |
 | `PORT` | `8000` | Listen port |
+
+## Troubleshooting
+
+**401 Unauthorized**: Check that `REPLICATE_API_TOKEN` is valid when using `AUTH_MODE=false`. If using `AUTH_MODE=true`, ensure your client passes a valid Replicate token in the `Authorization` header.
+
+**404 Model not found**: Use `GET /v1/models` to see the full list of available models. You can use any model ID from that list, or pass a full `owner/name` Replicate model identifier directly.
+
+**Streaming issues**: Ensure your OpenAI client supports Server-Sent Events (SSE). The gateway streams Replicate's output directly to maintain low latency.
+
+**Connection errors**: Verify the server is running and accessible at the configured `HOST` and `PORT`. Check your firewall settings if running in a cloud environment.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
