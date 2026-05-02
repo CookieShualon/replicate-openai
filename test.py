@@ -34,7 +34,7 @@ def check(name: str, fn):
 def run_tests(base_url: str) -> int:
     # Detect auth mode and pick the right api_key for the OpenAI client
     try:
-        r = httpx.get(f"{base_url}/auth-mode", timeout=5)
+        r = httpx.get(f"{base_url}/v1/auth-mode", timeout=5)
         auth_mode: bool = r.json().get("auth_mode", False)
     except Exception:
         auth_mode = False
@@ -62,7 +62,7 @@ def run_tests(base_url: str) -> int:
         failures += 1
 
     def test_auth_mode_endpoint():
-        r = httpx.get(f"{base_url}/auth-mode", timeout=5)
+        r = httpx.get(f"{base_url}/v1/auth-mode", timeout=5)
         assert r.status_code == 200
         data = r.json()
         assert "auth_mode" in data
@@ -205,7 +205,7 @@ def run_tests(base_url: str) -> int:
 
     # -------------------------------------------------------------------------
     print()
-    total = 12
+    total = 13
     passed = total - failures
     status = PASS if failures == 0 else FAIL
     print(f"Results: {status}  {passed}/{total} passed\n")

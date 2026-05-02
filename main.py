@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
@@ -42,8 +42,8 @@ GH_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><
 
 
 @app.get("/", tags=["health"], response_class=HTMLResponse)
-async def homepage() -> HTMLResponse:
-    base_url = f"http://{HOST}:{PORT}/v1"
+async def homepage(request: Request) -> HTMLResponse:
+    base_url = str(request.url_for("list_models")).removesuffix("/models")
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
