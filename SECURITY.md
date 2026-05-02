@@ -10,7 +10,7 @@ If versioned releases are introduced later, this policy should be updated with a
 
 Please do not report security vulnerabilities in public issues.
 
-If you believe you have found a vulnerability, contact the maintainers privately through the repository owner's GitHub profile or open a minimal public issue asking for a private contact path. Do not include exploit details, API tokens, private prompts, request logs, customer data, or other sensitive information in public.
+If you believe you have found a vulnerability, please use GitHub's Private vulnerability reporting feature on this repository. If that is unavailable, contact the maintainers privately through the repository owner's GitHub profile or open a minimal public issue asking for a private contact path. Do not include exploit details, API tokens, private prompts, request logs, customer data, or other sensitive information in public.
 
 Helpful private reports include:
 
@@ -38,4 +38,3 @@ Never commit `.env` files, Replicate API tokens, authorization headers, private 
 ## Response Expectations
 
 Maintainers will aim to acknowledge vulnerability reports promptly, investigate the issue, and coordinate a fix where appropriate. Timelines may vary because this is a small open-source project.
-
